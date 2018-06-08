@@ -44,7 +44,6 @@ void ConfigureUART(void);
 void ConfigurePins(void);
 void ConfigureTimers(void);
 void SetTimerFreq(uint32_t timer, uint32_t freq);
-extern void Timer1IntHandler(void);
 
 //Variáveis globais
 // Da senoide gerada
@@ -89,9 +88,18 @@ void ConfigurePins(void)
 
     GPIOPinTypeGPIOOutput(DAC_GPIO_BASE, GPIO_PIN_DAC);
     GPIOPinWrite(DAC_GPIO_BASE,0xFF,0x0);
+
+        SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+        SysCtlDelay(10);
+        GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_3);
+
+
+
+
 }
 
-void ConfigureUART(void){
+void ConfigureUART(void)
+{
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);    // Habilita o GPIO usado pela UART
     SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);    // Habilita o módulo UART
 
@@ -113,22 +121,18 @@ void ConfigureTimers(void){
       SysCtlPeripheralDisable(SYSCTL_PERIPH_TIMER1);
       SysCtlPeripheralReset(SYSCTL_PERIPH_TIMER1);
       SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
-      SysCtlDelay(10);
 
       TimerConfigure(TIMER1_BASE, TIMER_CFG_PERIODIC);
       TimerLoadSet(TIMER1_BASE, TIMER_A, (80000000-1)/((sen_frq*1000)*sen_res));
+      // Enable triggering
+       TimerControlTrigger(TIMER1_BASE, TIMER_A, true);
 
-
+       // Enable processor interrupts.
+       IntMasterEnable();
       IntEnable(INT_TIMER1A);
-
-      TimerIntEnable( TIMER1_BASE, TIMER_TIMA_TIMEOUT );
-      IntMasterEnable();
-      //TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
-      TimerDMAEventSet(TIMER1_BASE,TIMER_DMA_TIMEOUT_A);
+      TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 
 }
-
-
 
 void ConfigureuDMA(void)
 {
@@ -136,8 +140,6 @@ void ConfigureuDMA(void)
       SysCtlPeripheralDisable(SYSCTL_PERIPH_UDMA);
       SysCtlPeripheralReset(SYSCTL_PERIPH_UDMA);
       SysCtlPeripheralEnable(SYSCTL_PERIPH_UDMA);
-
-      SysCtlDelay(10);
 
       uDMAEnable();
 
@@ -177,6 +179,8 @@ void ConfigureuDMA(void)
 
       //Enable the DMA chanel
       uDMAChannelEnable(UDMA_CH18_TIMER1A);
+      TimerEnable(TIMER1_BASE, TIMER_A);
+
 }
 void
 InitConsole(void)
@@ -254,14 +258,7 @@ void ConfigureADC(void)
         TimerControlTrigger(TIMER0_BASE, TIMER_A, true);
 
 
-        // Enable processor interrupts.
-        IntMasterEnable();
-
-        ADCIntEnable(ADC0_BASE, 3);
-
-        // Enable the timer
-        TimerEnable(TIMER0_BASE, TIMER_A);
-}
+ }
 
 
 
@@ -269,42 +266,22 @@ void main()
 {
     SysCtlClockSet(SYSCTL_SYSDIV_2_5|SYSCTL_USE_PLL|SYSCTL_OSC_MAIN|SYSCTL_XTAL_16MHZ);
     IntMasterEnable();
+    ConfigurePins();
     InitConsole();
     ConfigureTimers();
-    ConfigurePins();
     ConfigureuDMA();
-
-    TimerEnable(TIMER1_BASE, TIMER_A);
-
     while(1)
     {
 
-        if(i >= 199)
-        {
-            i = 0;
-
-            int j;
-            for(j = 0; j < 200; j++)
-            {
-                UARTprintf("%d\n", adc_buffer[j]);
-                SysCtlDelay(SysCtlClockGet()/96);
-            }
-            IntEnable(INT_TIMER1A);
-            IntEnable(INT_TIMER0A);
-        }
-        else
-        {
-            ConfigureADC();
-        }
 
     }
 }
 void Timer1IntHandler(void)
 {
-
-
     TimerIntClear(TIMER1_BASE,TIMER_TIMA_DMA);
-
+    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, GPIO_PIN_3);
+    SysCtlDelay((2*SysCtlClockGet())/(3*1000000));
+    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, 0x0);
     //Set again the same source address and destination
     uDMAChannelTransferSet(UDMA_CH18_TIMER1A | UDMA_PRI_SELECT,
       UDMA_MODE_BASIC,
@@ -312,18 +289,7 @@ void Timer1IntHandler(void)
       128);
 
     //Always needed since after it's done the DMA is disabled when in basic mode
-      uDMAChannelEnable(UDMA_CH18_TIMER1A);
-      TimerEnable(TIMER1_BASE, TIMER_A);
+    uDMAChannelEnable(UDMA_CH18_TIMER1A);
 
-
-}
-
-void ADC0IntHandler(void)
-{
-    // Clear the interrupt status flag.
-    ADCIntClear(ADC0_BASE, 3);
-    ADCSequenceDataGet(ADC0_BASE, 3, pui32ADC0Value);
-    adc_buffer[i] = pui32ADC0Value[0];
-    i++;
-
+    TimerEnable(TIMER1_BASE, TIMER_A);
 }
