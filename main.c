@@ -52,8 +52,11 @@ unsigned short sen_res=128;    //numero de pontos da senoide
 uint32_t pui32ADC0Value[1];
 int adc_buffer[200];
 int i = 0;
-
-
+int z = 0x00000008;
+int flag_timer = 0;
+uint32_t pui32ADC0Value[1];
+int timer1_flag=0;
+unsigned char *seno_increment;
 //*****************************************************************************
 // Tabela de controle para o controlador uDMA.
 //*****************************************************************************
@@ -123,14 +126,17 @@ void ConfigureTimers(void){
       SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
 
       TimerConfigure(TIMER1_BASE, TIMER_CFG_PERIODIC);
-      TimerLoadSet(TIMER1_BASE, TIMER_A, (80000000-1)/((sen_frq*1000)*sen_res));
+      TimerLoadSet(TIMER1_BASE, TIMER_A, 50); //10kHz BASIC MODE = 50; @2_5DIV
       // Enable triggering
        TimerControlTrigger(TIMER1_BASE, TIMER_A, true);
-
+       //TimerControlEvent(TIMER1_BASE,TIMER_A,TIMER_EVENT_BOTH_EDGES);
        // Enable processor interrupts.
+
        IntMasterEnable();
-      IntEnable(INT_TIMER1A);
-      TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+       TimerIntEnable(TIMER1_BASE, TIMER_TIMA_MATCH);
+       TimerDMAEventSet(TIMER1_BASE, TIMER_TIMA_MATCH);
+       IntEnable(INT_TIMER1A);
+
 
 }
 
@@ -173,11 +179,11 @@ void ConfigureuDMA(void)
       */
       uDMAChannelTransferSet(UDMA_CH18_TIMER1A | UDMA_PRI_SELECT,
         UDMA_MODE_BASIC,
-        (void *)seno, (void *)(DAC_GPIO_BASE + 0x3FC),
+        seno_increment, (void *)(DAC_GPIO_BASE + 0x3FC),
         128);
 
 
-      //Enable the DMA chanel
+      //Enable the DMA channel
       uDMAChannelEnable(UDMA_CH18_TIMER1A);
       TimerEnable(TIMER1_BASE, TIMER_A);
 
@@ -224,6 +230,7 @@ void ConfigureADC(void)
 {
     // ***** ADC STUFF *****
 
+
         // The ADC0 peripheral must be enabled for use.
         SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
 
@@ -232,16 +239,17 @@ void ConfigureADC(void)
 
         // Select the analog ADC function for PE3.
         GPIOPinTypeADC(GPIO_PORTE_BASE, GPIO_PIN_1);
-
-        ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_TIMER, 0);
         ADCSequenceStepConfigure(ADC0_BASE, 3, 0, ADC_CTL_CH0 | ADC_CTL_IE |
                                      ADC_CTL_END);
+        ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_TIMER, 0);
+
         // Since sample sequence 2 is now configured, it must be enabled.
         ADCSequenceEnable(ADC0_BASE, 3);
-        IntEnable(INT_ADC0SS3);
 
         // Clear the interrupt status flag.
         ADCIntClear(ADC0_BASE, 3);
+
+
 
         // Enable the Timer peripheral
         SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
@@ -252,18 +260,26 @@ void ConfigureADC(void)
         // Set the value that is loaded into the timer everytime it finishes
         //   it's the number of clock cycles it takes till the timer triggers the ADC
         //#define F_SAMPLE    1000
-        TimerLoadSet(TIMER0_BASE, TIMER_A, SysCtlClockGet()/1000);
-        //TimerLoadSet(TIMER0_BASE, TIMER_A, (80000000-1)/((sen_frq*1000)*sen_res));
+        TimerLoadSet(TIMER0_BASE, TIMER_A, 16);
+
         // Enable triggering
         TimerControlTrigger(TIMER0_BASE, TIMER_A, true);
 
+        // Enable processor interrupts.
+        IntMasterEnable();
 
+        ADCIntEnable(ADC0_BASE, 3);
+        IntEnable(INT_ADC0SS3);
+        // Enable the timer
+        TimerEnable(TIMER0_BASE, TIMER_A);
  }
 
 
 
 void main()
 {
+
+    seno_increment = seno;
     SysCtlClockSet(SYSCTL_SYSDIV_2_5|SYSCTL_USE_PLL|SYSCTL_OSC_MAIN|SYSCTL_XTAL_16MHZ);
     IntMasterEnable();
     ConfigurePins();
@@ -274,22 +290,46 @@ void main()
     {
 
 
+        /*
+        *seno_increment++;
+        //Set again the same source address and destination
+                uDMAChannelTransferSet(UDMA_CH18_TIMER1A | UDMA_PRI_SELECT,
+                  UDMA_MODE_BASIC,
+                  (void *)seno_increment, (void *)(DAC_GPIO_BASE + 0x3FC),
+                  1);
+                //Always needed since after it's done the DMA is disabled when in basic mode
+                    uDMAChannelEnable(UDMA_CH18_TIMER1A);
+                    TimerEnable(TIMER1_BASE, TIMER_A);
+*/
     }
 }
 void Timer1IntHandler(void)
 {
-    TimerIntClear(TIMER1_BASE,TIMER_TIMA_DMA);
-    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, GPIO_PIN_3);
-    SysCtlDelay((2*SysCtlClockGet())/(3*1000000));
-    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, 0x0);
-    //Set again the same source address and destination
+    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, z);
+
+    z=z^(0x00000008);
+    TimerIntClear(TIMER1_BASE,TIMER_TIMA_MATCH);
+
     uDMAChannelTransferSet(UDMA_CH18_TIMER1A | UDMA_PRI_SELECT,
-      UDMA_MODE_BASIC,
-      (void *)seno, (void *)(DAC_GPIO_BASE + 0x3FC),
-      128);
+                                                          UDMA_MODE_BASIC,
+                                                          seno_increment, (void *)(DAC_GPIO_BASE + 0x3FC),
+                                                          128);
+                //Always needed since after it's done the DMA is disabled when in basic mode
+                    uDMAChannelEnable(UDMA_CH18_TIMER1A);
+                    TimerEnable(TIMER1_BASE, TIMER_A);
 
-    //Always needed since after it's done the DMA is disabled when in basic mode
-    uDMAChannelEnable(UDMA_CH18_TIMER1A);
+    //Set again the same source address and destination
 
-    TimerEnable(TIMER1_BASE, TIMER_A);
-}
+
+
+
+    //timer1_flag=1;*/
+    }
+/*void ADC0IntHandler(void) {
+
+    // Clear the interrupt status flag.
+    ADCIntClear(ADC1_BASE, 3);
+    ADCSequenceDataGet(ADC1_BASE, 3, pui32ADC0Value);
+//    UARTprintf("%4d\n", pui32ADC0Value[0]);
+}*/
+
