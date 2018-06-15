@@ -51,6 +51,7 @@ unsigned short sen_frq=10;     //em kHz
 unsigned short sen_res=128;    //numero de pontos da senoide
 uint32_t pui32ADC0Value[1];
 int adc_buffer[200];
+
 int i = 0;
 int z = 0x00000008;
 int flag_timer = 0;
@@ -281,7 +282,7 @@ void ConfigureADC(void)
 
 void main()
 {
-
+    adc_buffer[127] = 100;
     seno_increment = seno;
     SysCtlClockSet(SYSCTL_SYSDIV_2_5|SYSCTL_USE_PLL|SYSCTL_OSC_MAIN|SYSCTL_XTAL_16MHZ);
     IntMasterEnable();
@@ -294,7 +295,7 @@ void main()
         if(print_flag==1)
         {
             int j;
-            for(j=0; j < 126; j++)
+            for(j=0; j < 128; j++)
             {
                 UARTprintf("%d\n",adc_buffer[j]);
                 SysCtlDelay(SysCtlClockGet()/96);
@@ -307,8 +308,16 @@ void main()
         if(timer0_flag==1)
         {
             ConfigureADC();
-//            UARTprintf("%4d\n", pui32ADC0Value[0]);
+            //UARTprintf("%4d\n", pui32ADC0Value[0]);
             //SysCtlDelay(SysCtlClockGet()/96);
+            GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, z);
+                z=z^(0x00000008);
+                ADCSequenceDataGet(ADC0_BASE, 3, pui32ADC0Value);
+                adc_buffer[i]=pui32ADC0Value[0];
+                timer0_flag=0;
+                timer1_flag=1;
+                i++;
+
             timer0_flag=0;
         }
         if(timer1_flag==1)
@@ -359,10 +368,7 @@ void ADC0IntHandler(void) {
     //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, z);
     //z=z^(0x00000008);
     // Clear the interrupt status flag.
-    ADCSequenceDataGet(ADC0_BASE, 3, pui32ADC0Value);
-    adc_buffer[i]=pui32ADC0Value[0];
-    timer0_flag=0;
-    timer1_flag=1;
-    i++;
+
     ADCIntClear(ADC0_BASE, 3);
+
 }
