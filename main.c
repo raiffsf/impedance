@@ -51,7 +51,7 @@ void SetTimerFreq(uint32_t timer, uint32_t freq);
 unsigned short sen_frq=10;     //em kHz
 unsigned short sen_res=128;    //numero de pontos da senoide
 uint32_t pui32ADC0Value[1];
-unsigned short int adc_buffer[150];
+float adc_buffer[128];
 
 int i = 0;
 int v = 0;
@@ -344,12 +344,42 @@ void main()
             int j;
             print_flag = 0;
             i = 0;
+            float aux_max=0;
+            float aux_min=0;
             //v = 0;
             for(j = 0; j < 128; j++)
             {
-                UARTprintf("P[%d], %d\n", j, adc_buffer[j]);
-                SysCtlDelay(SysCtlClockGet()/12);
+                adc_buffer[j]=(adc_buffer[j]*3.32)/4095;
+                //UARTprintf("P[%d], %d\n", j, adc_buffer[j]);
+                //SysCtlDelay(SysCtlClockGet()/12);
             }
+            float aux_sum=0;
+            for(j = 0; j < 128; j++)
+            {
+                aux_sum+=adc_buffer[j];
+                //UARTprintf("P[%d], %d\n", j, adc_buffer[j]);
+                //SysCtlDelay(SysCtlClockGet()/12);
+            }
+            float aux_mean=0;
+            aux_mean=(aux_sum/128);
+            //aux_mean = 1.57 - 0.07;
+            for(j = 0; j < 128; j++)
+            {
+                adc_buffer[j]=adc_buffer[j]-aux_mean;
+            }
+
+            for(j = 7; j < 124; j++)
+            {
+                if(adc_buffer[j-1] < adc_buffer[j] && adc_buffer[j+1] < adc_buffer[j] && adc_buffer[j+2] < adc_buffer[j] && adc_buffer[j+3] < adc_buffer[j])
+                {
+                    aux_max = adc_buffer[j-1];
+                    j=127;
+                }
+            }
+            float Rx=0;
+            Rx = aux_max*1000/(1.26-aux_max);
+            UARTprintf("Rx: %d\n",(int)fabs(Rx));
+            SysCtlDelay(SysCtlClockGet()/12);
             ADCIntEnable(ADC0_BASE, 3);
             IntEnable(INT_ADC0SS3);
             //Set again the same source address and destination
@@ -374,14 +404,14 @@ void Timer1IntHandler(void)
     ADCIntDisable(ADC0_BASE, 3);
     IntDisable(INT_ADC0SS3);
     print_flag=1;
-
+/*
     uDMAChannelTransferSet(UDMA_CH18_TIMER1A | UDMA_PRI_SELECT,
                 UDMA_MODE_BASIC,
                 (void *)seno, (void *)(DAC_GPIO_BASE + 0x3FC),
                 128);
     //Enable the DMA channel
     uDMAChannelEnable(UDMA_CH18_TIMER1A);
-    TimerEnable(TIMER1_BASE, TIMER_A);
+    TimerEnable(TIMER1_BASE, TIMER_A);*/
 }
 
 void ADC0IntHandler(void)
