@@ -51,7 +51,7 @@ void SetTimerFreq(uint32_t timer, uint32_t freq);
 unsigned short sen_frq=10;     //em kHz
 unsigned short sen_res=128;    //numero de pontos da senoide
 uint32_t pui32ADC0Value[1];
-float adc_buffer[128];
+unsigned short int adc_buffer[150];
 
 int i = 0;
 int v = 0;
@@ -344,6 +344,7 @@ void main()
             int j;
             print_flag = 0;
             i = 0;
+<<<<<<< HEAD
             float Imag=0,Zx_mod=0,Zx_phase=0,Rx_Real=0,Rx_Imag=0;
             float Real=0;
             v = 0;
@@ -361,6 +362,14 @@ void main()
             //Rx = aux_max*1000/(1.26-aux_max);
             UARTprintf("Rx: %d\n",(int)Zx_mod);
             SysCtlDelay(SysCtlClockGet()/12);
+=======
+            //v = 0;
+            for(j = 0; j < 128; j++)
+            {
+                UARTprintf("P[%d], %d\n", j, adc_buffer[j]);
+                SysCtlDelay(SysCtlClockGet()/12);
+            }
+>>>>>>> parent of 6449a1f... Rx_calc_1kHz
             ADCIntEnable(ADC0_BASE, 3);
             IntEnable(INT_ADC0SS3);
             //Set again the same source address and destination
@@ -385,14 +394,14 @@ void Timer1IntHandler(void)
     ADCIntDisable(ADC0_BASE, 3);
     IntDisable(INT_ADC0SS3);
     print_flag=1;
-/*
+
     uDMAChannelTransferSet(UDMA_CH18_TIMER1A | UDMA_PRI_SELECT,
                 UDMA_MODE_BASIC,
                 (void *)seno, (void *)(DAC_GPIO_BASE + 0x3FC),
                 128);
     //Enable the DMA channel
     uDMAChannelEnable(UDMA_CH18_TIMER1A);
-    TimerEnable(TIMER1_BASE, TIMER_A);*/
+    TimerEnable(TIMER1_BASE, TIMER_A);
 }
 
 void ADC0IntHandler(void)
