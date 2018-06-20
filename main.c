@@ -344,41 +344,22 @@ void main()
             int j;
             print_flag = 0;
             i = 0;
-            float aux_max=0;
-            float aux_min=0;
-            //v = 0;
-            for(j = 0; j < 128; j++)
-            {
-                adc_buffer[j]=(adc_buffer[j]*3.32)/4095;
-                //UARTprintf("P[%d], %d\n", j, adc_buffer[j]);
-                //SysCtlDelay(SysCtlClockGet()/12);
-            }
-            float aux_sum=0;
-            for(j = 0; j < 128; j++)
-            {
-                aux_sum+=adc_buffer[j];
-                //UARTprintf("P[%d], %d\n", j, adc_buffer[j]);
-                //SysCtlDelay(SysCtlClockGet()/12);
-            }
-            float aux_mean=0;
-            aux_mean=(aux_sum/128);
-            //aux_mean = 1.57 - 0.07;
-            for(j = 0; j < 128; j++)
-            {
-                adc_buffer[j]=adc_buffer[j]-aux_mean;
-            }
+            float Imag=0,Zx_mod=0,Zx_phase=0,Rx_Real=0,Rx_Imag=0;
+            float Real=0;
+            v = 0;
+            //float Rx=0;
+            Imag = adc_buffer[0]-adc_buffer[2];
+            Real = adc_buffer[1]-adc_buffer[3];
+            //UARTprintf("P[%d], %d\n", j, inPhase);
+            //SysCtlDelay(SysCtlClockGet()/12);
+            Rx_Real = Real*1000/(1.26-Real);
+            Rx_Imag = Imag*1000/(1.26-Imag);
+            Zx_mod = sqrt((Rx_Real*Rx_Real)+ (Rx_Imag*Rx_Imag));
+            Zx_phase = atan(Rx_Imag/Rx_Real);
 
-            for(j = 7; j < 124; j++)
-            {
-                if(adc_buffer[j-1] < adc_buffer[j] && adc_buffer[j+1] < adc_buffer[j] && adc_buffer[j+2] < adc_buffer[j] && adc_buffer[j+3] < adc_buffer[j])
-                {
-                    aux_max = adc_buffer[j-1];
-                    j=127;
-                }
-            }
-            float Rx=0;
-            Rx = aux_max*1000/(1.26-aux_max);
-            UARTprintf("Rx: %d\n",(int)fabs(Rx));
+
+            //Rx = aux_max*1000/(1.26-aux_max);
+            UARTprintf("Rx: %d\n",(int)Zx_mod);
             SysCtlDelay(SysCtlClockGet()/12);
             ADCIntEnable(ADC0_BASE, 3);
             IntEnable(INT_ADC0SS3);
@@ -417,15 +398,14 @@ void Timer1IntHandler(void)
 void ADC0IntHandler(void)
 {
     ADCIntClear(ADC0_BASE, 3);
-    //if(i == 0 || i == 31 || i == 63 || i == 95 || i == 127)
-    //{
+    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, z);
+    z=z^(0x00000008);
+    if(i == 0 || i == 31 || i == 63 || i == 95 || i == 127)
+    {
         ADCSequenceDataGet(ADC0_BASE, 3, pui32ADC0Value);
-        adc_buffer[i] = pui32ADC0Value[0];
-        //v++;
-        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3, z);
-        z=z^(0x00000008);
-
-    //}
+        adc_buffer[v] = pui32ADC0Value[0];
+        v++;
+    }
     //UARTprintf("%d\n",adc_buffer[0]);
     i++;
     //UARTprintf("%d\n", pui32ADC0Value[0]);
