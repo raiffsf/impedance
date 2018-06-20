@@ -346,6 +346,7 @@ void main()
             i = 0;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             float Imag=0,Zx_mod=0,Zx_phase=0,Rx_Real=0,Rx_Imag=0;
             float Real=0;
             v = 0;
@@ -366,6 +367,8 @@ void main()
 =======
 =======
 >>>>>>> parent of 6449a1f... Rx_calc_1kHz
+=======
+>>>>>>> parent of 6449a1f... Rx_calc_1kHz
             //v = 0;
             for(j = 0; j < 128; j++)
             {
@@ -373,6 +376,9 @@ void main()
                 SysCtlDelay(SysCtlClockGet()/12);
             }
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of 6449a1f... Rx_calc_1kHz
+=======
 >>>>>>> parent of 6449a1f... Rx_calc_1kHz
 =======
 >>>>>>> parent of 6449a1f... Rx_calc_1kHz
